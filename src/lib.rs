@@ -15,43 +15,6 @@ use std::io::Write;
 extern crate jemalloc_ctl;
 extern crate jemallocator;
 
-/// The type used to store leaves of the merkle tree.
-pub type Db = InMemoryHashDb::<DbVal8ary>;
-
-// Very fast. Profiler says average 15 nanoseconds.
-pub fn make_db() -> Db {
-    Db::new()
-}
-
-// Comparatively slow. Profiler says average 2 milliseconds.
-pub fn make_hash_params() -> PoseidonParams {
-    let width = 9;
-    // The following values are appropriate for any of the following curves:
-    // bls381, bn254, secp256k1, and ed25519.
-    let (full_b, full_e, partial_rounds) = (4, 4, 56);
-    PoseidonParams::new(width, full_b, full_e, partial_rounds).unwrap()
-}
-
-// Super fast. Profiler says average 2 nanoseconds.
-pub fn make_hash_func(hash_params: &PoseidonParams) -> i32 {
-    let _x = PoseidonHash8 {
-        params: &hash_params,
-        sbox: &SboxType::Quint,
-    };
-    0
-}
-
-// Pretty slow. Profiler says average 23 milliseconds when depth = 12.
-// Time increase is linear with depth of tree:
-// depth = 3 -- ave time = 6 ms
-// depth = 6 -- ave time = 12 ms
-// depth = 9 -- ave time = 18 ms
-// depth = 12 -- ave time = 24 ms
-pub fn make_tree(hash_func: &PoseidonHash8, tree_depth: usize, db: &mut Db) -> i32 {
-    let _x = VanillaSparseMerkleTree8::new(hash_func, tree_depth, db).unwrap();
-    0
-}
-
 fn byte_count_to_friendly(byte_count: usize) -> String {
     const KB: f64 = 1024.0;
     const MB: f64 = KB * KB;
@@ -121,3 +84,48 @@ pub fn experiment(depth: i32, fill_ratio: f64) {
     println!("\nExperiment completed after {} milliseconds.", now.elapsed().as_millis());
     memdump("end of experiment", start_allocated);
 }
+
+// ------------------------------------------------------------------
+// The functions below are mainly used for benchmarking. They're designed
+// to isolate particular pieces of logic that might perform in interesting
+// ways. They are NOT very good functions to use for general merkle tree
+// coding, because they encapsulate things in odd ways to make performance
+// tests as crisp as possible.
+
+/// The type used to store leaves of the merkle tree.
+pub type Db = InMemoryHashDb::<DbVal8ary>;
+
+// Very fast. Profiler says average 15 nanoseconds.
+pub fn make_db() -> Db {
+    Db::new()
+}
+
+// Comparatively slow. Profiler says average 2 milliseconds.
+pub fn make_hash_params() -> PoseidonParams {
+    let width = 9;
+    // The following values are appropriate for any of the following curves:
+    // bls381, bn254, secp256k1, and ed25519.
+    let (full_b, full_e, partial_rounds) = (4, 4, 56);
+    PoseidonParams::new(width, full_b, full_e, partial_rounds).unwrap()
+}
+
+// Super fast. Profiler says average 2 nanoseconds.
+pub fn make_hash_func(hash_params: &PoseidonParams) -> i32 {
+    let _x = PoseidonHash8 {
+        params: &hash_params,
+        sbox: &SboxType::Quint,
+    };
+    0
+}
+
+// Pretty slow. Profiler says average 23 milliseconds when depth = 12.
+// Time increase is linear with depth of tree:
+// depth = 3 -- ave time = 6 ms
+// depth = 6 -- ave time = 12 ms
+// depth = 9 -- ave time = 18 ms
+// depth = 12 -- ave time = 24 ms
+pub fn make_tree(hash_func: &PoseidonHash8, tree_depth: usize, db: &mut Db) -> i32 {
+    let _x = VanillaSparseMerkleTree8::new(hash_func, tree_depth, db).unwrap();
+    0
+}
+
