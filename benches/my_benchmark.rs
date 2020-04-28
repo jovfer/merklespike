@@ -1,13 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use bulletproofs_amcl::{
     r1cs::gadgets::{
-        helper_constraints::{
-            sparse_merkle_tree_8_ary::{VanillaSparseMerkleTree8, DbVal8ary, ProofNode8ary},
-            poseidon::{PoseidonParams, SboxType}
-        },
+        helper_constraints::poseidon::{SboxType},
         merkle_tree_hash::PoseidonHash8
-    },
-    utils::hash_db::InMemoryHashDb
+    }
 };
 
 fn criterion_benchmark(c: &mut Criterion) {

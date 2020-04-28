@@ -1,7 +1,7 @@
 use bulletproofs_amcl::{
     r1cs::gadgets::{
         helper_constraints::{
-            sparse_merkle_tree_8_ary::{VanillaSparseMerkleTree8, DbVal8ary, ProofNode8ary},
+            sparse_merkle_tree_8_ary::{VanillaSparseMerkleTree8, DbVal8ary},
             poseidon::{PoseidonParams, SboxType}
         },
         merkle_tree_hash::PoseidonHash8
@@ -89,7 +89,6 @@ pub fn memdump(milestone: &str, base_value: usize) -> usize {
 
 pub fn experiment(depth: i32, fill_ratio: f64) {
 
-    use jemalloc_ctl::stats;
     let start_allocated = memdump("start of experiment", 0);
 
     let mut db = make_db();
@@ -106,7 +105,6 @@ pub fn experiment(depth: i32, fill_ratio: f64) {
     let insert_count = (capacity as f64 * fill_ratio) as u64;
     println!("Capacity of tree = {}; filling {}% or {}.", capacity, fill_ratio * 100.0, insert_count);
 
-
     use std::time::Instant;
     let now = Instant::now();
     for i in 1..insert_count {
@@ -122,34 +120,4 @@ pub fn experiment(depth: i32, fill_ratio: f64) {
 
     println!("\nExperiment completed after {} milliseconds.", now.elapsed().as_millis());
     memdump("end of experiment", start_allocated);
-
-    let mut x = String::new();
-    io::stdin().read_line(&mut x).unwrap();
-
-    // This code isn't used. I copied it from a unit test and left it in for reference.
-    if cfg!(foo) {
-        for i in 1..20 {
-            let s = FieldElement::from(i as u32);
-            assert_eq!(s, tree.get(&s, &mut None, &db).unwrap());
-            let mut proof_vec = Vec::<ProofNode8ary>::new();
-            let mut proof = Some(proof_vec);
-            assert_eq!(s, tree.get(&s, &mut proof, &db).unwrap());
-            proof_vec = proof.unwrap();
-            assert!(tree.verify_proof(&s, &s, &proof_vec, None).unwrap());
-            assert!(tree
-                .verify_proof(&s, &s, &proof_vec, Some(&tree.root))
-                .unwrap());
-        }
-
-        let kvs: Vec<(FieldElement, FieldElement)> = (0..20)
-            .map(|_| (FieldElement::random(), FieldElement::random()))
-            .collect();
-        for i in 0..kvs.len() {
-            tree.update(&kvs[i].0, kvs[i].1.clone(), &mut db).unwrap();
-        }
-
-        for i in 0..kvs.len() {
-            assert_eq!(kvs[i].1, tree.get(&kvs[i].0, &mut None, &db).unwrap());
-        }
-    }
 }
