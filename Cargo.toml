@@ -1,0 +1,25 @@
+[package]
+name = "merklespike"
+version = "0.1.0"
+authors = ["Daniel Hardman <daniel.hardman@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bulletproofs_amcl = { version = "0.2", path = "../ursa/libzmix/bulletproofs_amcl" }
+clap = "2.33.0"
+jemallocator = "0.3"
+jemalloc-ctl = "0.3"
+
+[dependencies.amcl_wrapper]
+version = "0.3.5"
+default-features = false
+features = ["bls381"]
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
