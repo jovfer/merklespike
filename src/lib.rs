@@ -49,7 +49,6 @@ pub fn memdump(milestone: &str, base_value: usize) -> usize {
     a
 }
 
-
 pub fn experiment(depth: i32, fill_ratio: f64) {
 
     let start_allocated = memdump("start of experiment", 0);
@@ -94,6 +93,9 @@ pub fn experiment(depth: i32, fill_ratio: f64) {
 
 /// The type used to store leaves of the merkle tree.
 pub type Db = InMemoryHashDb::<DbVal8ary>;
+pub type El = FieldElement;
+
+pub type Tree<'a> = VanillaSparseMerkleTree8<'a, PoseidonHash8<'a>>;
 
 // Very fast. Profiler says average 15 nanoseconds.
 pub fn make_db() -> Db {
@@ -110,12 +112,12 @@ pub fn make_hash_params() -> PoseidonParams {
 }
 
 // Super fast. Profiler says average 2 nanoseconds.
-pub fn make_hash_func(hash_params: &PoseidonParams) -> i32 {
-    let _x = PoseidonHash8 {
+pub fn make_hash_func(hash_params: &PoseidonParams) -> PoseidonHash8 {
+    let hf = PoseidonHash8 {
         params: &hash_params,
         sbox: &SboxType::Quint,
     };
-    0
+    hf
 }
 
 // Pretty slow. Profiler says average 23 milliseconds when depth = 12.
