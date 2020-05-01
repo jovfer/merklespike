@@ -37,7 +37,8 @@ fn main() {
     println!("Generated a sparse 8-ary Merkle tree.\n  depth = {}\n  node count = {}",
             depth, db.len());
 
-    dump(None, "/", &tree.root, &db);
+    let (preamble, _) = find_node_from_path(&tree, &db, "/").unwrap();
+    dump(Some(preamble), &tree.root, &db);
     let mut last_path = "/".to_string();
     let mut path = "".to_string();
     loop {
@@ -48,7 +49,7 @@ fn main() {
             Ok(_) => {
                 let token = cmd.trim();
                 if let Ok(child_num ) = token.parse::<u8>() {
-                    if (child_num < 8) {
+                    if child_num < 8 {
                         path = last_path.clone();
                         path.push('/');
                         path.push_str(token);
@@ -80,7 +81,7 @@ fn main() {
                 }
                 if let Some((preamble, node)) = find_node_from_path(&tree, &db, path.as_str()) {
                     last_path = token.to_string();
-                    dump(Some(preamble), token, &node, &db);
+                    dump(Some(preamble), &node, &db);
                 } else {
                     println!("No such path.");
                 }
@@ -93,7 +94,7 @@ fn main() {
 }
 
 
-fn dump(preamble: Option<Vec<(String, String)>>, prefix: &str, key: &El, db: &Db) {
+fn dump(preamble: Option<Vec<(String, String)>>, key: &El, db: &Db) {
     let mut indenter = "".to_string();
     if let Some(preamble) = preamble {
         for item in preamble {
@@ -114,7 +115,7 @@ fn dump(preamble: Option<Vec<(String, String)>>, prefix: &str, key: &El, db: &Db
             println!("{}  .", indenter.as_str());
         }
     } else {
-        println!("{} ! {} (not found in map!)", prefix, get_key_text(key, false));
+        println!("{} not found in map!", get_key_text(key, false));
     }
 }
 
