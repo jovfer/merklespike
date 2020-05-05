@@ -4,6 +4,8 @@ use bulletproofs_amcl::r1cs::gadgets::helper_constraints::sparse_merkle_tree_8_a
 use std::io;
 use std::io::Write;
 
+#[macro_use] extern crate lazy_static;
+
 // Force this binary to use jemalloc. This is what allows us to
 // get stats about memory usage.
 extern crate jemallocator;
@@ -37,69 +39,73 @@ fn main() {
     println!("Generated a sparse 8-ary Merkle tree.\n  depth = {}\n  node count = {}",
             depth, db.len());
 
-    let (preamble, _) = find_node_from_path(&tree, &db, "/").unwrap();
-    dump(Some(preamble), &tree.root, &db);
-    let mut last_path = "/".to_string();
+    let mut last_path = "root".to_string();
     let mut path = "".to_string();
+    let mut short_circuit = true;
     loop {
         io::stdout().write(format!("\n{}> ", last_path).as_bytes()).ok();
         io::stdout().flush().ok();
         let mut cmd = String::new();
-        match io::stdin().read_line(&mut cmd) {
-            Ok(_) => {
-                let token = cmd.trim();
-                if let Ok(child_num ) = token.parse::<u8>() {
-                    if child_num < 8 {
-                        path = last_path.clone();
-                        path.push('/');
-                        path.push_str(token);
-                        println!("{}", path.as_str());
-                    } else {
-                        println!("No such child.");
-                        continue
-                    }
-                } else if token.starts_with('/') {
-                    path = token.to_string();
-                } else {
-                    match token {
-                        "up" => {
-                            if let Some(i) = last_path.rfind('/') {
-                                path = last_path[..i].to_string();
-                            }
-                        },
-                        "help" => {
-                            println!("Enter \"up\", \"quit\", child num, or abs path like /1/3/7: ");
-                            continue
-                        },
-                        "quit" => return,
-                        "q" => return,
-                        _ => {
-                            println!("Huh?");
-                            continue
-                        }
-                    }
-                }
-                if let Some((preamble, node)) = find_node_from_path(&tree, &db, path.as_str()) {
-                    last_path = token.to_string();
-                    dump(Some(preamble), &node, &db);
-                } else {
-                    println!("No such path.");
-                }
-            },
-            Err(_) => {
+        // Skip input first time through loop; always show root of tree
+        if short_circuit {
+            cmd = last_path.clone();
+            io::stdout().write(b"root\n").ok();
+            short_circuit = false;
+        } else {
+            if io::stdin().read_line(&mut cmd).is_err() {
                 break;
             }
+        }
+        let token = cmd.trim();
+        if let Ok(child_num ) = token.parse::<u8>() {
+            if child_num < 8 {
+                path = last_path.clone();
+                path.push('/');
+                path.push_str(token);
+            } else {
+                println!("No such child.");
+                continue
+            }
+        } else if token.starts_with('/') {
+            path = token.to_string();
+        } else {
+            match token {
+                "up" => {
+                    if let Some(i) = last_path.rfind('/') {
+                        path = last_path[..i].to_string();
+                    }
+                },
+                "root" => {
+                    path = token.to_string();
+                },
+                "help" => {
+                    println!("Enter \"up\", \"quit\", child num, or abs path like /1/3/7: ");
+                    continue
+                },
+                "quit" => return,
+                "q" => return,
+                _ => {
+                    println!("Huh?");
+                    continue
+                }
+            }
+        }
+        if let Some((preamble, node)) = find_node_from_path(&tree, &db, path.as_str()) {
+            last_path = path.clone();
+            dump(Some(preamble), &node, &db);
+        } else {
+            println!("No such path.");
         }
     }
 }
 
 
-fn dump(preamble: Option<Vec<(String, String)>>, key: &El, db: &Db) {
+fn dump(preamble: Option<Vec<PathSegment>>, key: &El, db: &Db) {
     let mut indenter = "".to_string();
     if let Some(preamble) = preamble {
         for item in preamble {
             let delim = if indenter.len() == 0 { "" } else { "/" };
-            println!("{}{}{} = {}", indenter, delim, item.0, item.1);
+            println!("{}{}{} = {}", indenter, delim, item.descrip, item.key);
             indenter.push_str("  ");
         }
     }
@@ -157,36 +163,49 @@ fn get_key_text(el: &El, full: bool) -> String {
     }
 }
 
-fn find_node_from_path(tree: & Tree, db: & Db, path: &str) -> Option<(Vec<(String, String)>, El)> {
-    use regex::Regex;
+struct PathSegment {
+    pub descrip: String,
+    pub key: String,
+}
 
-    let mut ids: Vec<(String, String)> = Vec::new();
-    let re = Regex::new(r"(\d+)").unwrap();
-    let mut lookup_key = tree.root.clone();
-    let mut segment_descrip = "::";
-    if let Some(mut current) = get_node(&lookup_key, &db) {
-        ids.push((segment_descrip.to_string(), get_key_text(&lookup_key, false)));
-        let last = re.find_iter(path).last();
-        for segment in re.find_iter(path) {
-            segment_descrip = segment.as_str();
-            let child_idx: usize = segment.as_str().parse().unwrap();
-            if child_idx < 8 {
-                lookup_key = current[child_idx].clone();
-                if let Some(next) = get_node(&lookup_key, &db) {
-                    current = next;
-                    let is_last = if last.is_some() { segment.eq(&last.unwrap()) } else { false };
-                    ids.push((segment_descrip.to_string(), get_key_text(&lookup_key, is_last)));
-                } else {
-                    println!("Not found: {}.", &path[0..segment.end()]);
-                    return None
-                }
-            } else {
-                println!("Bad index {} in path.", child_idx);
-            }
-        }
-        Some((ids, lookup_key.clone()))
-    } else {
-        println!("Can't find root.");
-        None
+/// Given a human-entered path string like "/3/7", find the corresponding
+/// internal path through the tree to the node, plus the FieldElement that
+/// acts as the lookup key for the node.
+fn find_node_from_path(tree: & Tree, db: & Db, path: &str) -> Option<(Vec<PathSegment>, El)> {
+    use regex::Regex;
+    use lazy_static;
+
+    lazy_static! {
+        static ref re: Regex = Regex::new(r"(\d+)").unwrap();
     }
+    let mut lookup_key = tree.root.clone();
+    let mut current= get_node(&lookup_key, &db).unwrap();
+    let mut ids: Vec<PathSegment> = Vec::new();
+    let mut segment_descrip = "root";
+    let last = re.find_iter(path).last();
+    ids.push(PathSegment {
+        descrip: segment_descrip.to_string(),
+        key: get_key_text(&lookup_key, last.is_none())
+    });
+    for item in re.find_iter(path) {
+        segment_descrip = item.as_str();
+        let child_idx: usize = item.as_str().parse().unwrap();
+        if child_idx < 8 {
+            lookup_key = current[child_idx].clone();
+            if let Some(next) = get_node(&lookup_key, &db) {
+                current = next;
+                let is_last = if last.is_some() { item.eq(&last.unwrap()) } else { false };
+                ids.push(PathSegment {
+                    descrip: segment_descrip.to_string(),
+                    key: get_key_text(&lookup_key, is_last)
+                });
+            } else {
+                println!("Not found: {}.", &path[0..item.end()]);
+                return None
+            }
+        } else {
+            println!("Bad index {} in path.", child_idx);
+        }
+    }
+    Some((ids, lookup_key.clone()))
 }

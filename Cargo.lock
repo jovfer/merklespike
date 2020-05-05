@@ -482,6 +482,7 @@ dependencies = [
  "hex",
  "jemalloc-ctl",
  "jemallocator",
+ "lazy_static",
  "regex",
 ]
 
