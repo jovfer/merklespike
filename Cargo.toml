@@ -14,6 +14,7 @@ jemalloc-ctl = "0.3"
 regex = "1"
 hex = "0.3.1"
 lazy_static = "1.4.0"
+rand = "0.7.3"
 
 [dependencies.amcl_wrapper]
 version = "0.3.5"

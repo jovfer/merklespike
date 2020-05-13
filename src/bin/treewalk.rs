@@ -28,12 +28,12 @@ fn main() {
             .takes_value(true))
         .get_matches();
 
-    let depth: i32 = matches.value_of("depth").unwrap_or("2").parse::<i32>().unwrap();
+    let depth: usize = matches.value_of("depth").unwrap_or("2").parse::<usize>().unwrap();
 
     let mut db = merklespike::make_db();
     let hash_params = merklespike::make_hash_params();
     let hash_func = merklespike::make_hash_func(&hash_params);
-    let tree = merklespike::Tree::new(
+    let mut tree = merklespike::Tree::new(
         &hash_func, depth as usize, &mut db).unwrap();
 
     println!("Generated a sparse 8-ary Merkle tree.\n  depth = {}\n  node count = {}",
@@ -68,6 +68,10 @@ fn main() {
             }
         } else if token.starts_with('/') {
             path = token.to_string();
+        } else if token.starts_with("i ") {
+            let idx = token[2..].parse::<u64>().unwrap();
+            tree.update(&El::from(idx), El::one(), &mut db).ok();
+            path = last_path.clone();
         } else {
             match token {
                 "up" => {
@@ -173,21 +177,20 @@ struct PathSegment {
 /// acts as the lookup key for the node.
 fn find_node_from_path(tree: & Tree, db: & Db, path: &str) -> Option<(Vec<PathSegment>, El)> {
     use regex::Regex;
-    use lazy_static;
 
     lazy_static! {
-        static ref re: Regex = Regex::new(r"(\d+)").unwrap();
+        static ref RE: Regex = Regex::new(r"(\d+)").unwrap();
     }
     let mut lookup_key = tree.root.clone();
     let mut current= get_node(&lookup_key, &db).unwrap();
     let mut ids: Vec<PathSegment> = Vec::new();
     let mut segment_descrip = "root";
-    let last = re.find_iter(path).last();
+    let last = RE.find_iter(path).last();
     ids.push(PathSegment {
         descrip: segment_descrip.to_string(),
         key: get_key_text(&lookup_key, last.is_none())
     });
-    for item in re.find_iter(path) {
+    for item in RE.find_iter(path) {
         segment_descrip = item.as_str();
         let child_idx: usize = item.as_str().parse().unwrap();
         if child_idx < 8 {

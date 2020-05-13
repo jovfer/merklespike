@@ -34,7 +34,7 @@ fn main() {
             .required(true)
         ).get_matches();
 
-    let depth: i32 = matches.value_of("depth").unwrap().parse::<i32>().unwrap();
+    let depth: usize = matches.value_of("depth").unwrap().parse::<usize>().unwrap();
     let fill_ratio: f64 = matches.value_of("fill-ratio").unwrap().parse::<f64>().unwrap();
 
     merklespike::experiment(depth, fill_ratio);
