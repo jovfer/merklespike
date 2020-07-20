@@ -4,7 +4,7 @@ use std::error::Error;
 
 /// Hold a set of bits that can be set, unset, and tested by index.
 /// Basically behave like an array of bits.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bitmap {
     items: Vec<u32>
 }
